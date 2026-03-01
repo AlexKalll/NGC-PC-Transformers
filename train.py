@@ -1,3 +1,5 @@
+from functools import partial
+import jax
 from jax import numpy as jnp, random
 from model import NGCTransformer
 from ngclearn.utils.metric_utils import measure_CatNLL
@@ -5,6 +7,21 @@ from data_preprocess.data_loader import DataLoader
 from config import Config as config
 from eval import eval_model
 import time
+
+
+@partial(jax.jit, static_argnums=(1,))
+def prepare_targets_onehot_flat(targets, vocab_size):
+    return jax.nn.one_hot(targets, vocab_size, dtype=jnp.float32).reshape(-1, vocab_size)
+
+
+@partial(jax.jit, static_argnums=(2,))
+def compute_batch_ce_ppl(y_mu, targets, vocab_size):
+    y_pred = y_mu.reshape(-1, vocab_size)
+    y_true = jax.nn.one_hot(targets.reshape(-1), vocab_size, dtype=y_pred.dtype)
+    batch_nll = measure_CatNLL(y_pred, y_true)
+    batch_ce_loss = batch_nll.mean()
+    batch_ppl = jnp.exp(batch_ce_loss)
+    return batch_ce_loss, batch_ppl
 
 def main():
     seq_len, batch_size, n_embed, vocab_size, n_layers, n_heads, n_iter, optim_type = config.seq_len, config.batch_size, config.n_embed, config.vocab_size, config.n_layers, config.n_heads, config.n_iter, config.optim_type
@@ -30,11 +47,10 @@ def main():
         total_nll, total_tokens = 0., 0
         
         for batch in data_loader:
-            inputs = batch[0][1]
-            targets = batch[1][1]
+            inputs = jax.device_put(batch[0][1])
+            targets = jax.device_put(batch[1][1])
             
-            targets_onehot = jnp.eye(vocab_size)[targets]  # (B, S, V)
-            targets_flat = targets_onehot.reshape(-1, vocab_size)  # (B*S, V)
+            targets_flat = prepare_targets_onehot_flat(targets, vocab_size)
 
             yMu_inf, y_mu, _EFE = model.process(obs=inputs, lab=targets_flat, adapt_synapses=False)
             
@@ -50,18 +66,17 @@ def main():
     start_time = time.time()
 
     for i in range(epoch):
-        train_EFE = 0.
+        train_EFE = jnp.asarray(0.0)
         total_batches = 0
         
         print(f"\n iter {i}:")
         
         for batch_idx, batch in enumerate(train_loader):
-            inputs = batch[0][1]
-            targets = batch[1][1]
+            inputs = jax.device_put(batch[0][1])
+            targets = jax.device_put(batch[1][1])
             
             #Convert targets to one-hot and flatten
-            targets_onehot = jnp.eye(vocab_size)[targets]  # (B, S, V)
-            targets_flat = targets_onehot.reshape(-1, vocab_size)  # (B*S, V)
+            targets_flat = prepare_targets_onehot_flat(targets, vocab_size)
 
             
             yMu_inf, y_mu, _EFE = model.process(obs=inputs, lab=targets_flat, adapt_synapses=True)
@@ -69,12 +84,7 @@ def main():
             total_batches += 1
 
             if batch_idx % 10 == 0:
-                y_pred = y_mu.reshape(-1, vocab_size)
-                y_true = jnp.eye(vocab_size)[targets.flatten()]
-                
-                batch_nll = measure_CatNLL(y_pred, y_true)
-                batch_ce_loss = batch_nll.mean()  
-                batch_ppl = jnp.exp(batch_ce_loss)
+                batch_ce_loss, batch_ppl = compute_batch_ce_ppl(y_mu, targets, vocab_size)
                 
                 print(f"  Batch {batch_idx}: EFE = {_EFE:.4f}, CE = {batch_ce_loss:.4f}, PPL = {batch_ppl:.4f}")
         
