@@ -339,7 +339,6 @@ class NGCTransformer:
                 advance_process >> self.output.E_out.advance_state
                 advance_process >> self.output.z_out.advance_state
                 advance_process >> self.output.W_out.advance_state
-                advance_process >> self.Outgrad.advance_state
                 advance_process >> self.z_actfx.advance_state
                 advance_process >> self.z_target.advance_state
                 advance_process >> self.output.e_out.advance_state
