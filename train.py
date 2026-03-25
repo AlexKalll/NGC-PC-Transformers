@@ -7,6 +7,8 @@ from config import Config as config
 from eval import eval_model
 import time
 
+
+jax.config.update("jax_default_matmul_precision", "high")
 def main():
     seq_len, batch_size, n_embed, vocab_size, n_layers, n_heads, n_iter, optim_type = config.seq_len, config.batch_size, config.n_embed, config.vocab_size, config.n_layers, config.n_heads, config.n_iter, config.optim_type
     pos_learnable= config.pos_learnable
