@@ -1,3 +1,4 @@
+import jax
 from jax import numpy as jnp, random
 from model import NGCTransformer
 from ngclearn.utils.metric_utils import measure_CatNLL
@@ -33,12 +34,10 @@ def main():
             inputs = batch[0][1]
             targets = batch[1][1]
             
-            targets_onehot = jnp.eye(vocab_size)[targets]  # (B, S, V)
-            targets_flat = targets_onehot.reshape(-1, vocab_size)  # (B*S, V)
-
+            targets_flat = jax.nn.one_hot(targets.flatten(), vocab_size)
             yMu_inf, y_mu, _EFE = model.process(obs=inputs, lab=targets_flat, adapt_synapses=False)
             
-            y_pred = yMu_inf.reshape(-1, vocab_size)
+            y_pred = y_mu.reshape(-1, vocab_size)
             y_true = targets_flat
             
             total_nll += measure_CatNLL(y_pred, y_true) * y_true.shape[0]
@@ -53,16 +52,14 @@ def main():
         train_EFE = 0.
         total_batches = 0
         
-        print(f"\n iter {i}:")
+        print(f"\nEpoch {i}:")
         
         for batch_idx, batch in enumerate(train_loader):
             inputs = batch[0][1]
             targets = batch[1][1]
             
             #Convert targets to one-hot and flatten
-            targets_onehot = jnp.eye(vocab_size)[targets]  # (B, S, V)
-            targets_flat = targets_onehot.reshape(-1, vocab_size)  # (B*S, V)
-
+            targets_flat = jax.nn.one_hot(targets.flatten(), vocab_size)
             
             yMu_inf, y_mu, _EFE = model.process(obs=inputs, lab=targets_flat, adapt_synapses=True)
             train_EFE += _EFE
@@ -70,7 +67,7 @@ def main():
 
             if batch_idx % 10 == 0:
                 y_pred = y_mu.reshape(-1, vocab_size)
-                y_true = jnp.eye(vocab_size)[targets.flatten()]
+                y_true = targets_flat
                 
                 batch_nll = measure_CatNLL(y_pred, y_true)
                 batch_ce_loss = batch_nll.mean()  
@@ -81,7 +78,7 @@ def main():
         avg_train_EFE = train_EFE / total_batches if total_batches > 0 else 0
         
         dev_ce, dev_ppl = eval_model(model, valid_loader, vocab_size)
-        print(f"Iter {i} Summary: CE = {dev_ce:.4f}, PPL = {dev_ppl:.4f}, Avg EFE = {avg_train_EFE:.4f}")
+        print(f"Epoch {i} Summary: CE = {dev_ce:.4f}, PPL = {dev_ppl:.4f}, Avg EFE = {avg_train_EFE:.4f}")
         if  i == (epoch-1):
           model.save_to_disk(params_only=False) # save final state of model to disk
     total_time = time.time() - start_time

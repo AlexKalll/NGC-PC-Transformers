@@ -23,6 +23,7 @@ from data_preprocess.data_loader import DataLoader
 from eval import eval_model
 from config import Config as base_config
 from ngclearn.utils.metric_utils import measure_CatNLL
+import gc
 
 EFE_STABILITY_THRESHOLD = 2e1
 
@@ -145,7 +146,8 @@ def run_single_trial_efe(trial):
                 break
             inputs = batch[0][1]
             targets = batch[1][1]
-            targets_flat = jnp.eye(cfg.vocab_size)[targets].reshape(-1, cfg.vocab_size)
+            targets_flat = jax.nn.one_hot(targets.flatten(), cfg.vocab_size)
+
 
             try:
                 _, _, EFE, *_ = model.process(obs=inputs, lab=targets_flat, adapt_synapses=True)
@@ -203,7 +205,6 @@ def run_single_trial_efe(trial):
                 del locals()[obj_name]
         
         # Force garbage collection
-        import gc
         for _ in range(2):
             gc.collect()
         
@@ -249,13 +250,13 @@ def run_phase2_trial(trial, best_params):
             break
         inputs = batch[0][1]
         targets = batch[1][1]
-        targets_flat = jnp.eye(cfg.vocab_size)[targets].reshape(-1, cfg.vocab_size)
+        targets_flat = jax.nn.one_hot(targets.flatten(), cfg.vocab_size)
 
         try:
-            yMu_inf, _, EFE, *_ = model.process(obs=inputs, lab=targets_flat, adapt_synapses=True)
+            yMu_inf, y_mu, EFE, *_ = model.process(obs=inputs, lab=targets_flat, adapt_synapses=True)
             EFE = abs(float(EFE))
             
-            y_pred = yMu_inf.reshape(-1, cfg.vocab_size)
+            y_pred = y_mu.reshape(-1, cfg.vocab_size)
             batch_nll = measure_CatNLL(y_pred, targets_flat) * targets_flat.shape[0]
             batch_train_ce = batch_nll / targets_flat.shape[0]
             

@@ -1,4 +1,5 @@
 
+import jax
 import os
 import jax.numpy as jnp
 from model import NGCTransformer
@@ -23,9 +24,7 @@ def eval_model(model: NGCTransformer, data_loader, vocab_size: int):
         targets = batch[1][1]        
 
        
-        targets_onehot = jnp.eye(vocab_size)[targets]             
-        targets_flat = targets_onehot.reshape(-1, vocab_size)      
-
+        targets_flat = jax.nn.one_hot(targets.flatten(), vocab_size)
         yMu_inf, y_mu, _ = model.process(obs=inputs,
                                       lab=targets_flat,
                                       adapt_synapses=False)
@@ -36,8 +35,8 @@ def eval_model(model: NGCTransformer, data_loader, vocab_size: int):
         total_tokens += targets_flat.shape[0]
         
         if batch_idx % 10 == 0:
-            y_pred = yMu_inf.reshape(-1, vocab_size)
-            y_true = jnp.eye(vocab_size)[targets.flatten()]
+            y_pred = y_mu.reshape(-1, vocab_size)
+            y_true = targets_flat
             
             batch_nll = measure_CatNLL(y_pred, y_true)
             batch_ce_loss = batch_nll.mean()  
