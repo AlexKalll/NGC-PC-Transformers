@@ -36,7 +36,7 @@ def main():
         total_nll, total_tokens = 0., 0
         
         for batch in data_loader:
-            inputs = batch[0][1].astype(jnp.bfloat16) 
+            inputs = batch[0][1]
             targets = batch[1][1]
             
             targets_flat = jax.nn.one_hot(targets.flatten(), vocab_size)
