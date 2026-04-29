@@ -8,16 +8,20 @@ class Config:
     n_layers = 2
     dropout_rate = 0.0
     eta = 4.919042890915579e-06
+    eta_o= 2.9e-04
     exp_dir = "exp" 
     pos_learnable = True
     optim_type = "sgd"
     epoch = 1
     n_iter= 26
+    tau_o = 2.23
     # Approximate Xavier scaling: 1 / sqrt(512) is about 0.04
     wub = 0.035284728580901155
     wlb =  -0.07318664527441558
     tau_m = 11.
     act_fx = "identity"
+    act_fx_o = "identity"
+
     # Tokenizer selection: "BPE" (custom/BPE loader) or "tiktoken"
     tokenizer = "BPE"
     # When tokenizer == "tiktoken", tokenizer_name is used (e.g. "gpt2" or "cl100k_base")
