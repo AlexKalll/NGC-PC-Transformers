@@ -159,13 +159,4 @@ if __name__ == "__main__":
     )
     print(generated_1)
 
-    print("\nFINAL GENERATED 2:\n")
-    generated_2 = generate_text(
-        model,
-        tokenizer,
-        max_new_tokens=100,
-        temperature=0.9,
-        top_k=50,
-        key=key_2,
-    )
-    print(generated_2)
+    
